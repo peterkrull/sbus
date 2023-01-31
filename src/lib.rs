@@ -1,6 +1,7 @@
 #![no_std]
 
 use arraydeque::{ArrayDeque, Wrapping};
+use bitvec::prelude::*;
 
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::serial::Read;
@@ -65,6 +66,44 @@ impl SBusPacketParser {
 
     /// Attempts to parse a valid SBUS packet from the buffer
     pub fn try_parse(&mut self) -> Option<SBusPacket> {
+        
+        // Pop bytes until head byte is first        
+        while *self.buffer.front()? != HEAD_BYTE
+        && self.buffer.len() > PACKET_SIZE {
+            self.buffer.pop_front()?;
+        }
+
+        // Check if entire frame is valid
+        if !self._valid_frame() { return None }
+
+        // Extract the relevant data from buffer
+        let mut data = [0u8; 22]; // 11*16 == 8*22
+        let _ = self.buffer.pop_front()?; // Remove header byte
+        for d in data.iter_mut() {
+            *d = self.buffer.pop_front()?
+        }
+
+        // Initialize channels with 11-bit mask
+        let mut channels: [u16; 16] = [0; 16];
+        
+        // Convert 22x8-bits => 16x11-bits, contained in u16
+        data.view_bits::<Lsb0>().chunks(11)
+        .zip(& mut channels)
+        .for_each(|(v,ch)| *ch = v.load());
+
+        let flag_byte = self.buffer.pop_front()?;
+
+        return Some(SBusPacket {
+            channels:   channels,
+            d1:         is_flag_set(flag_byte, 0),
+            d2:         is_flag_set(flag_byte, 1),
+            frame_lost: is_flag_set(flag_byte, 2),
+            failsafe:   is_flag_set(flag_byte, 3),
+        });
+    }
+
+    /// Attempts to parse a valid SBUS packet from the buffer
+    pub fn try_parse_original(&mut self) -> Option<SBusPacket> {
         
         // Pop bytes until head byte is first        
         while *self.buffer.front()? != HEAD_BYTE
