@@ -65,7 +65,7 @@ impl SBusPacketParser {
     }
 
     /// Attempts to parse a valid SBUS packet from the buffer
-    pub fn try_parse(&mut self) -> Option<SBusPacket> {
+    pub fn try_parse_bitvec(&mut self) -> Option<SBusPacket> {
         
         // Pop bytes until head byte is first        
         while *self.buffer.front()? != HEAD_BYTE
@@ -103,7 +103,7 @@ impl SBusPacketParser {
     }
 
     /// Attempts to parse a valid SBUS packet from the buffer
-    pub fn try_parse_original(&mut self) -> Option<SBusPacket> {
+    pub fn try_parse(&mut self) -> Option<SBusPacket> {
         
         // Pop bytes until head byte is first        
         while *self.buffer.front()? != HEAD_BYTE
